@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>라이어 게임</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 0;
+    }
+
+    .wrap {
+      max-width: 520px;
+      margin: 40px auto;
+      background: white;
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      margin-top: 0;
+      text-align: center;
+    }
+
+    p {
+      line-height: 1.6;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      font-size: 16px;
+      margin-top: 10px;
+      margin-bottom: 14px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    .primary {
+      background: #2d6cdf;
+      color: white;
+    }
+
+    .secondary {
+      background: #e9eef8;
+      color: #1f3f7a;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .result-box {
+      margin-top: 20px;
+      padding: 18px;
+      border-radius: 12px;
+      background: #f7f9fc;
+      text-align: center;
+    }
+
+    .role {
+      font-size: 28px;
+      font-weight: bold;
+      margin: 14px 0;
+    }
+
+    .hobby {
+      font-size: 22px;
+      color: #d43f3a;
+      font-weight: bold;
+    }
+
+    .error {
+      color: #d43f3a;
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    .info {
+      color: #555;
+      text-align: center;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>라이어 게임</h1>
+
+    <div id="startScreen">
+      <p>학번을 입력하고 결과를 확인하세요.</p>
+      <input type="text" id="nickname" placeholder="학번 입력" />
+      <button class="primary" id="startBtn">결과 확인하기</button>
+      <div class="error" id="errorMsg"></div>
+      <p class="info">한 번 배정된 학번은 같은 결과가 다시 표시됩니다.</p>
+    </div>
+
+    <div id="resultScreen" class="hidden">
+      <div class="result-box">
+        <p id="helloText"></p>
+        <div class="role" id="roleText"></div>
+        <div class="hobby" id="hobbyText"></div>
+      </div>
+
+      <button class="primary" id="voteBtn">구글폼으로 투표하러 가기</button>
+      <button class="secondary" id="backBtn">처음으로</button>
+    </div>
+  </div>
+
+  <script>
+    // 여기에 Apps Script 웹앱 URL 넣기
+    const API_URL = 'https://script.google.com/a/macros/goedu.kr/s/AKfycbwAYT3ncMkfk4yiqfZGkQJjPrMw8ZYtQyTE7d2tgJRHloYBcPFctAeMBebDKtiSpbeyJw/exec';
+
+    const startScreen = document.getElementById('startScreen');
+    const resultScreen = document.getElementById('resultScreen');
+
+    const nicknameInput = document.getElementById('nickname');
+    const startBtn = document.getElementById('startBtn');
+    const backBtn = document.getElementById('backBtn');
+    const voteBtn = document.getElementById('voteBtn');
+
+    const errorMsg = document.getElementById('errorMsg');
+    const helloText = document.getElementById('helloText');
+    const roleText = document.getElementById('roleText');
+    const hobbyText = document.getElementById('hobbyText');
+
+    let currentVoteUrl = '';
+
+    async function startGame() {
+      const nickname = nicknameInput.value.trim();
+      errorMsg.textContent = '';
+
+      if (!nickname) {
+        errorMsg.textContent = '학번을 입력하세요.';
+        return;
+      }
+
+      startBtn.disabled = true;
+      startBtn.textContent = '불러오는 중...';
+
+      try {
+        const url = `${API_URL}?nickname=${encodeURIComponent(nickname)}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data.success) {
+          errorMsg.textContent = data.error || '오류가 발생했습니다.';
+          return;
+        }
+
+        helloText.textContent = `${data.nickname} 학생의 결과`;
+        roleText.textContent = `역할: ${data.role}`;
+
+        if (data.role === '가짜' && data.hobby) {
+          hobbyText.textContent = `배정된 취미: ${data.hobby}`;
+        } else {
+          hobbyText.textContent = '';
+        }
+
+        currentVoteUrl = data.voteUrl || '';
+
+        startScreen.classList.add('hidden');
+        resultScreen.classList.remove('hidden');
+
+      } catch (error) {
+        errorMsg.textContent = '서버와 통신 중 문제가 발생했습니다.';
+      } finally {
+        startBtn.disabled = false;
+        startBtn.textContent = '결과 확인하기';
+      }
+    }
+
+    startBtn.addEventListener('click', startGame);
+
+    nicknameInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        startGame();
+      }
+    });
+
+    backBtn.addEventListener('click', function () {
+      resultScreen.classList.add('hidden');
+      startScreen.classList.remove('hidden');
+      nicknameInput.value = '';
+      errorMsg.textContent = '';
+      helloText.textContent = '';
+      roleText.textContent = '';
+      hobbyText.textContent = '';
+      currentVoteUrl = '';
+    });
+
+    voteBtn.addEventListener('click', function () {
+      if (currentVoteUrl) {
+        window.open(currentVoteUrl, '_blank');
+      } else {
+        alert('투표 링크가 설정되지 않았습니다.');
+      }
+    });
+  </script>
+</body>
+</html>
